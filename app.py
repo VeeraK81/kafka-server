@@ -13,7 +13,7 @@ def sendRequest(msg):
         "transaction_data": transaction_data
         }
     }
-    
+    print(f"Received message: {payload}")
     url = "http://host.docker.internal:8080/api/v1/dags/api_triggered_dag/dagRuns"
     auth = HTTPBasicAuth("airflow", "airflow")
     
@@ -47,7 +47,6 @@ for msg in consumer:
     try:
         # Process each message and send to Airflow
         transaction_data = msg.value.decode('utf-8')
-        print(f"Received message: {transaction_data}")
         sendRequest(transaction_data)
     except json.JSONDecodeError as e:
         print(f"Error decoding message: {e}")
