@@ -84,6 +84,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
     volumes:
       - zookeeper-data:/var/lib/zookeeper  # Zookeeper data persistence
+    restart: always
 
   kafka:
     image: confluentinc/cp-enterprise-kafka:5.5.3
@@ -103,6 +104,8 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
     volumes:
       - kafka-data:/var/lib/kafka  # Kafka data persistence
+    restart: always
+
 
   debezium:
     image: debezium/connect:1.4
@@ -131,10 +134,12 @@ services:
     ports:
       - 8081:8081
     depends_on: [zookeeper, kafka]
+    volumes:
+      - schema-registry-data:/data
+    restart: always
 
   kafka_manager:
     image: hlebalbau/kafka-manager:stable
-    restart: always
     ports:
       - "9000:9000"
     depends_on:
@@ -144,6 +149,8 @@ services:
       ZK_HOSTS: "zookeeper:2181"
       APPLICATION_SECRET: "random-secret"
     command: -Dpidfile.path=/dev/null
+    restart: always
+
 
   python-consumer:
     build:
@@ -165,5 +172,7 @@ volumes:
   kafka-data:
     external: true
   debezium-data:
+    external: true
+  schema-registry-data:
     external: true
 
