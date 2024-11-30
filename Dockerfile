@@ -1,11 +1,8 @@
 # Use an official Python runtime as a parent image
 FROM python:3.9-slim
-
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-# Install required system packages
-RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip
 
@@ -19,7 +16,7 @@ COPY requirements.txt .
 COPY . .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt    
+RUN pip install -r requirements.txt    
 
-# Set default command to run the Python application
+# # Set default command to run the Python application
 CMD ["python", "app.py"]
