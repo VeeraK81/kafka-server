@@ -14,14 +14,13 @@ def sendTransactionRequest(transaction_data):
     if transaction_data.get('is_fraud') is None: 
         payload = {
             "conf": {
-                "id": transaction_data['id'],
-                "trans_date_trans_time": transaction_data['trans_date_trans_time'],
-                "cc_num": transaction_data['cc_num'],
+                "transaction_id": transaction_data['transaction_id'],
+                "trans_date": transaction_data['trans_date'],
                 "trans_num": transaction_data['trans_num'],
                 "is_fraud": transaction_data['is_fraud']
             }
         }
-        print("Payload transaction:---", payload)
+        print("Payload id :", transaction_data['transaction_id'])
         
         url = os.getenv("AIRFLOW_URL")
         auth = HTTPBasicAuth(os.getenv("AIRFLOW_UN"), os.getenv("AIRFLOW_PWD"))
@@ -31,13 +30,14 @@ def sendTransactionRequest(transaction_data):
         else:
             print("Failed to trigger DAG:", response.status_code)
     else:
-        print("Transaction already processed :", transaction_data['id'])
+        print("Transaction already processed :", transaction_data['transaction_id'])
+    
 
 
 def handleFraudTransaction(transaction_data):
     try:
         if transaction_data.get('is_fraud') == 1:
-            print("Payload fraud transaction: ", transaction_data) 
+            print("Detected Fraud Transaction: ", transaction_data["transaction_id"]) 
             # Email configuration
             sender_email = os.getenv("SENDER_EMAIL")
             receiver_email = os.getenv("RECEIVER_EMAIL")  # Replace with the actual recipient
@@ -51,7 +51,7 @@ def handleFraudTransaction(transaction_data):
             <h3>Fraudulent Transaction Detected</h3>
             <p><strong>Transaction Details:</strong></p>
             <ul>
-                <li>ID: {transaction_data.get('id')}</li>
+                <li>ID: {transaction_data.get('transaction_id')}</li>
                 <li>Transaction Number: {transaction_data.get('trans_num')}</li>
             </ul>
             <p>Please review this transaction immediately.</p>
@@ -83,9 +83,8 @@ def handleFraudTransaction(transaction_data):
 
 
 def create_transaction_consumer():
-    print("Enter create_transaction_consumer-----")
     bootstrap_servers = ['kafka:9092']
-    topic_name = 'source.public.transaction'
+    topic_name = 'source.public.transactions'
 
     consumer_transaction = KafkaConsumer(
         topic_name, 
@@ -103,9 +102,8 @@ def create_transaction_consumer():
 
 
 def create_fraud_consumer():
-    print("Enter create_fraud_consumer-----")
     bootstrap_servers = ['kafka:9092']
-    topic_fraud_detection = 'source.public.transaction_fraud_detection'
+    topic_fraud_detection = 'source.public.transactions_fraud_detection'
 
     consumer_fraud = KafkaConsumer(
         topic_fraud_detection, 
@@ -124,7 +122,6 @@ def create_fraud_consumer():
 
 if __name__ == "__main__":
     try:
-        print("Enter main-----")
         # Use threading to run both consumers simultaneously
         transaction_thread = Thread(target=create_transaction_consumer, daemon=True)
         fraud_thread = Thread(target=create_fraud_consumer, daemon=True)
