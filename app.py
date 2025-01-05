@@ -37,7 +37,7 @@ def sendTransactionRequest(transaction_data):
 def handleFraudTransaction(transaction_data):
     try:
         if transaction_data.get('is_fraud') == 1:
-            print("Detected Fraud Transaction: ", transaction_data["transaction_id"]) 
+            print("Detected Fraud Transaction: ", transaction_data["id"]) 
             # Email configuration
             sender_email = os.getenv("SENDER_EMAIL")
             receiver_email = os.getenv("RECEIVER_EMAIL")  # Replace with the actual recipient
@@ -51,7 +51,7 @@ def handleFraudTransaction(transaction_data):
             <h3>Fraudulent Transaction Detected</h3>
             <p><strong>Transaction Details:</strong></p>
             <ul>
-                <li>ID: {transaction_data.get('transaction_id')}</li>
+                <li>ID: {transaction_data.get('id')}</li>
                 <li>Transaction Number: {transaction_data.get('trans_num')}</li>
             </ul>
             <p>Please review this transaction immediately.</p>
