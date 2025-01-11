@@ -1,105 +1,91 @@
-version: "3.7"
+version: "3.7"  # Specifies the version of Docker Compose file format being used
+
 services:
+  # Zookeeper service used by Kafka for managing distributed brokers
   zookeeper:
-    image: confluentinc/cp-zookeeper:5.5.3
+    image: confluentinc/cp-zookeeper:5.5.3  # Zookeeper Docker image version 5.5.3
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_CLIENT_PORT: 2181  # Exposes Zookeeper client port
     volumes:
-      - zookeeper-data:/var/lib/zookeeper  # Zookeeper data persistence
-    restart: always
+      - zookeeper-data:/var/lib/zookeeper  # Persist Zookeeper data to avoid losing data after container restarts
+    restart: always  # Ensures the service restarts automatically if it fails
 
+  # Kafka service to handle message brokering
   kafka:
-    image: confluentinc/cp-enterprise-kafka:5.5.3
+    image: confluentinc/cp-enterprise-kafka:5.5.3  # Kafka Docker image version 5.5.3
     depends_on:
-      - zookeeper
+      - zookeeper  # Kafka depends on Zookeeper service for coordination
     ports:
-      - 9092:9092
-      - 29092:29092
+      - 9092:9092  # Expose Kafka broker on port 9092 (for internal communication)
+      - 29092:29092  # Expose Kafka on port 29092 (for external access from localhost)
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka:9092,OUTSIDE://localhost:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
-      KAFKA_LISTENERS: INSIDE://0.0.0.0:9092,OUTSIDE://0.0.0.0:29092
-      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_BROKER_ID: 1  # Broker ID for Kafka; ensures it knows its role in a cluster
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1  # Set replication factor for offset topic (1 for simplicity)
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181  # Connect Kafka to Zookeeper instance
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka:9092,OUTSIDE://localhost:29092  # Advertise listeners for internal and external access
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT  # Set the security protocol for internal and external listeners
+      KAFKA_LISTENERS: INSIDE://0.0.0.0:9092,OUTSIDE://0.0.0.0:29092  # Specify Kafka listeners for internal and external access
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE  # Define the listener for inter-broker communication
     volumes:
-      - kafka-data:/var/lib/kafka  # Kafka data persistence
-    restart: always
+      - kafka-data:/var/lib/kafka  # Persist Kafka data to ensure data survives container restarts
+    restart: always  # Automatically restart the Kafka service if it fails
 
-
+  # Debezium service for change data capture (CDC)
   debezium:
-    image: debezium/connect:1.4
+    image: debezium/connect:1.4  # Debezium Docker image for Kafka Connect (version 1.4)
     environment:
-      BOOTSTRAP_SERVERS: kafka:9092
-      GROUP_ID: 1
-      CONFIG_STORAGE_TOPIC: connect_configs
-      OFFSET_STORAGE_TOPIC: connect_offsets
-      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      # CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: "false"
-      # CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
-      # CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      # CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-    depends_on: [kafka]
-    ports:
-      - 8083:8083
-    volumes:
-      - debezium-data:/data  # Debezium data persistence
-    restart: always
-
-  # schema-registry:
-  #   image: confluentinc/cp-schema-registry:5.5.3
-  #   environment:
-  #     - SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:2181
-  #     - SCHEMA_REGISTRY_HOST_NAME=schema-registry
-  #     - SCHEMA_REGISTRY_LISTENERS=http://schema-registry:8081,http://localhost:8081
-  #   ports:
-  #     - 8081:8081
-  #   depends_on: [zookeeper, kafka]
-  #   volumes:
-  #     - schema-registry-data:/data
-  #   restart: always
-
-  kafka_manager:
-    image: hlebalbau/kafka-manager:stable
-    ports:
-      - "9000:9000"
+      BOOTSTRAP_SERVERS: kafka:9092  # Kafka broker's location for Debezium to connect
+      GROUP_ID: 1  # Group ID for Kafka Connect (identifies the worker group)
+      CONFIG_STORAGE_TOPIC: connect_configs  # Topic to store configuration for connectors
+      OFFSET_STORAGE_TOPIC: connect_offsets  # Topic to store offsets for connectors
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter  # Set key converter to JSON
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter  # Set value converter to JSON
     depends_on:
-      - zookeeper
-      - kafka
+      - kafka  # Debezium depends on Kafka for capturing changes
+    ports:
+      - 8083:8083  # Expose Kafka Connect REST API for managing Debezium connectors
+    volumes:
+      - debezium-data:/data  # Persist Debezium data (connector configurations, offsets)
+    restart: always  # Automatically restart Debezium if it fails
+
+  # Kafka Manager service for managing Kafka brokers
+  kafka_manager:
+    image: hlebalbau/kafka-manager:stable  # Kafka Manager Docker image
+    ports:
+      - "9000:9000"  # Expose Kafka Manager UI on port 9000
+    depends_on:
+      - zookeeper  # Kafka Manager depends on Zookeeper for accessing Kafka cluster
+      - kafka  # Kafka Manager depends on Kafka to show broker status
     environment:
-      ZK_HOSTS: "zookeeper:2181"
-      APPLICATION_SECRET: "random-secret"
-    command: -Dpidfile.path=/dev/null
-    restart: always
+      ZK_HOSTS: "zookeeper:2181"  # Kafka Manager connects to Zookeeper on port 2181
+      APPLICATION_SECRET: "random-secret"  # Secret for Kafka Manager authentication
+    command: -Dpidfile.path=/dev/null  # Avoid creating PID files
+    restart: always  # Automatically restart Kafka Manager if it fails
 
-
+  # Python consumer service for consuming data from Kafka
   python-consumer:
     build:
-      context: .
-      dockerfile: Dockerfile  # Points to the Dockerfile provided above
+      context: .  # Context for building the Docker image (current directory)
+      dockerfile: Dockerfile  # Path to Dockerfile in the current directory
     environment:
-      KAFKA_BROKER: "kafka:9092"
-      KAFKA_TOPICS: ${KAFKA_TOPICS}  # Update if your topic name is different
-      AIRFLOW_URL: ${AIRFLOW_URL}
-      AIRFLOW_UN: ${AIRFLOW_UN}
-      AIRFLOW_PWD: ${AIRFLOW_PWD}
-      SENDER_EMAIL: ${SENDER_EMAIL}
-      RECEIVER_EMAIL: ${RECEIVER_EMAIL}
-      EMAIL_PWD: ${EMAIL_PWD}
+      KAFKA_BROKER: "kafka:9092"  # Kafka broker's address for the consumer
+      KAFKA_TOPICS: ${KAFKA_TOPICS}  # Set Kafka topics to subscribe to (environment variable)
+      AIRFLOW_URL: ${AIRFLOW_URL}  # Airflow URL for triggering tasks
+      AIRFLOW_UN: ${AIRFLOW_UN}  # Airflow username
+      AIRFLOW_PWD: ${AIRFLOW_PWD}  # Airflow password
+      SENDER_EMAIL: ${SENDER_EMAIL}  # Sender email for notifications
+      RECEIVER_EMAIL: ${RECEIVER_EMAIL}  # Receiver email for notifications
+      EMAIL_PWD: ${EMAIL_PWD}  # Email password for authentication
     volumes:
-      - .:/home/app
+      - .:/home/app  # Mount the current directory to /home/app in the container
     depends_on:
-      - kafka
-      # - schema-registry
-      - debezium
-      - zookeeper
-    restart: always
+      - kafka  # Python consumer depends on Kafka to consume data
+      - debezium  # Python consumer depends on Debezium to capture changes
+      - zookeeper  # Python consumer depends on Zookeeper for Kafka coordination
+    restart: always  # Automatically restart Python consumer if it fails
 
+# Define Docker volumes to persist data for Zookeeper, Kafka, and Debezium
 volumes:
-  zookeeper-data:
-  kafka-data:
-  debezium-data:
-  # schema-registry-data:
-
+  zookeeper-data:  # Persistent storage for Zookeeper
+  kafka-data:  # Persistent storage for Kafka
+  debezium-data:  # Persistent storage for Debezium
